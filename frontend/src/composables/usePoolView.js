@@ -1,7 +1,9 @@
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useTicketsStore } from '../stores/tickets';
 import { useUsersStore } from '../stores/users';
 import { useFiltersStore } from '../stores/filters';
+import { STATUS_FILTERS } from '../utils/constants';
 import { applyAdvancedFilters, sortTickets, paginate, ticketsToCsv, downloadCsv } from '../utils/table';
 
 // Centralizes the chain: subset → search/status → advanced → sort → paginate
@@ -10,11 +12,23 @@ export function usePoolView(viewKey, subsetGetter) {
   const tickets = useTicketsStore();
   const users = useUsersStore();
   const filters = useFiltersStore();
+  const route = useRoute();
 
   const status = computed({
     get: () => filters.getStatus(viewKey),
     set: (v) => filters.setStatus(viewKey, v),
   });
+
+  // Sync the active status filter from the route query (?status=open) so that
+  // navigating from the sidebar submenu updates the table view.
+  const syncFromQuery = () => {
+    const q = route?.query?.status;
+    if (typeof q === 'string' && STATUS_FILTERS.some((f) => f.key === q) && filters.getStatus(viewKey) !== q) {
+      filters.setStatus(viewKey, q);
+    }
+  };
+  syncFromQuery();
+  watch(() => route?.query?.status, syncFromQuery);
   const search = computed({
     get: () => filters.getSearch(viewKey),
     set: (v) => filters.setSearch(viewKey, v),
