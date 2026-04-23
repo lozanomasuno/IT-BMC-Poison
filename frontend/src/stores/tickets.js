@@ -1,7 +1,36 @@
 import { defineStore } from 'pinia';
 import { api } from '../api/client';
-import { STATUS_FILTERS } from '../utils/constants';
+import {
+  STATUS_FILTERS,
+  ESCALATION_PATHS,
+  LEVEL_ORDER,
+  DEFAULT_GROUP_BY_LEVEL,
+  CATEGORY_ROUTING,
+} from '../utils/constants';
 import { isToday, nextTicketNumber } from '../utils/format';
+
+const TERMINAL_STATUSES = ['closed', 'resolved', 'cancelled'];
+
+// Resolve the escalation target group for a ticket: category override first,
+// then explicit group name for the level, then any group at that level.
+function resolveTargetGroup(ticket, toLevel, usersStore) {
+  const haystack = `${ticket.category || ''} ${ticket.subcategory || ''} ${ticket.title || ''}`;
+  for (const rule of CATEGORY_ROUTING) {
+    if (rule.level !== toLevel) continue;
+    if (rule.match.test(haystack)) {
+      const g = usersStore.groups.find((gr) => gr.name === rule.groupName);
+      if (g) return g;
+    }
+  }
+  const defaultName = DEFAULT_GROUP_BY_LEVEL[toLevel];
+  return (
+    usersStore.groups.find((g) => g.name === defaultName)
+    || usersStore.groups.find((g) => g.level === toLevel)
+    || null
+  );
+}
+
+function nowIso() { return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'); }
 
 export const useTicketsStore = defineStore('tickets', {
   state: () => ({
@@ -56,6 +85,27 @@ export const useTicketsStore = defineStore('tickets', {
     },
 
     assignedTo: (s) => (userId) => s.tickets.filter((t) => t.assignedTo === userId),
+
+    // Buckets used by the dashboard / sidebar.
+    ticketsByLevel: (s) => {
+      const out = { L1: [], L2: [], L3: [] };
+      for (const t of s.tickets) if (out[t.currentLevel]) out[t.currentLevel].push(t);
+      return out;
+    },
+    ticketsByGroup: (s) => {
+      const out = {};
+      for (const t of s.tickets) {
+        const k = t.assignedGroupId ?? 'unassigned';
+        (out[k] = out[k] || []).push(t);
+      }
+      return out;
+    },
+    escalatedTickets: (s) =>
+      s.tickets.filter((t) => (t.history || []).some((h) => h.action?.startsWith('Escalated'))),
+    overdueTickets: (s) =>
+      s.tickets.filter((t) => t.breachedSla && !TERMINAL_STATUSES.includes(t.status)),
+    escalationCountFor: () => (ticket) =>
+      (ticket?.history || []).filter((h) => h.action?.startsWith('Escalated')).length,
   },
   actions: {
     async fetchTickets() {
@@ -154,23 +204,123 @@ export const useTicketsStore = defineStore('tickets', {
       return this.updateTicket(id, { history });
     },
 
-    async escalateTicket(id, toLevel, currentUser, usersStore, notes = '') {
+    async escalateTicket(id, toLevel, currentUser, usersStore, notes = '', { force = false } = {}) {
       const ticket = this.byId(id);
       if (!ticket) throw new Error('Ticket not found');
-      const targetGroup = usersStore.groups.find((g) => g.level === toLevel);
-      if (!targetGroup) throw new Error(`No group found for level ${toLevel}`);
-      const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+      const fromLevel = ticket.currentLevel;
+      // Validate path: managers may bypass with `force`, otherwise must be allowed.
+      const allowed = ESCALATION_PATHS[fromLevel] || [];
+      if (!force) {
+        if (!allowed.includes(toLevel)) {
+          throw new Error(`Invalid escalation path: ${fromLevel} → ${toLevel}`);
+        }
+        if ((LEVEL_ORDER[toLevel] || 0) <= (LEVEL_ORDER[fromLevel] || 0)) {
+          throw new Error(`Cannot escalate downward (${fromLevel} → ${toLevel})`);
+        }
+      }
+      if (TERMINAL_STATUSES.includes(ticket.status)) {
+        throw new Error(`Ticket is ${ticket.status}; reopen before escalating.`);
+      }
+
+      const targetGroup = resolveTargetGroup(ticket, toLevel, usersStore);
+      if (!targetGroup) throw new Error(`No group available for level ${toLevel}`);
+
+      const now = nowIso();
       const entry = {
         date: now,
         action: `Escalated to ${toLevel}`,
         performedBy: currentUser.username,
-        level: ticket.currentLevel,
-        notes: notes || `Escalated from ${ticket.currentLevel} to ${toLevel}.`,
+        previousLevel: fromLevel,
+        newLevel: toLevel,
+        level: toLevel,
+        notes: notes || `Escalated from ${fromLevel} to ${toLevel} (group: ${targetGroup.name}).`,
       };
+
+      // On escalation status moves to "assigned" and the ticket is unassigned
+      // from the previous individual until someone in the new group picks it up.
       return this.updateTicket(id, {
         currentLevel: toLevel,
         assignedGroupId: targetGroup.id,
+        assignedTo: null,
+        status: 'assigned',
+        history: [...(ticket.history || []), entry],
+      });
+    },
+
+    async assignTicket(id, userId, currentUser, usersStore) {
+      const ticket = this.byId(id);
+      if (!ticket) throw new Error('Ticket not found');
+      const user = usersStore.byId(userId);
+      if (!user) throw new Error('User not found');
+      const now = nowIso();
+      const entry = {
+        date: now,
+        action: 'Assigned',
+        performedBy: currentUser.username,
+        level: ticket.currentLevel,
+      
+
+    async reopenTicket(id, reason, currentUser) {
+      const ticket = this.byId(id);
+      if (!ticket) throw new Error('Ticket not found');
+      if (!['resolved', 'closed', 'cancelled'].includes(ticket.status)) {
+        throw new Error(`Cannot reopen ticket in status "${ticket.status}".`);
+      }
+      const now = nowIso();
+      const entry = {
+        date: now,
+        action: 'Reopened',
+        performedBy: currentUser.username,
+        level: ticket.currentLevel,
+        notes: reason || 'Ticket reopened.',
+      };
+      return this.updateTicket(id, {
+        status: 'assigned',
+        resolvedAt: null,
+        resolution: null,
+        history: [...(ticket.history || []), entry],
+      });
+    },  notes: `Assigned to ${user.fullName}.`,
+      };
+      return this.updateTicket(id, {
+        assignedTo: userId,
+        assignedGroupId: user.groupId ?? ticket.assignedGroupId,
         status: ticket.status === 'new' ? 'assigned' : ticket.status,
+        history: [...(ticket.history || []), entry],
+      });
+    },
+
+    async startProgress(id, currentUser) {
+      const ticket = this.byId(id);
+      if (!ticket) throw new Error('Ticket not found');
+      const now = nowIso();
+      const entry = {
+        date: now,
+        action: 'Status changed to In Progress',
+        performedBy: currentUser.username,
+        level: ticket.currentLevel,
+        notes: 'Technician started working on the ticket.',
+      };
+      return this.updateTicket(id, {
+        status: 'in_progress',
+        history: [...(ticket.history || []), entry],
+      });
+    },
+
+    async setPending(id, reason, currentUser) {
+      const ticket = this.byId(id);
+      if (!ticket) throw new Error('Ticket not found');
+      const now = nowIso();
+      const entry = {
+        date: now,
+        action: 'Status changed to Pending',
+        performedBy: currentUser.username,
+        level: ticket.currentLevel,
+        notes: reason || 'Awaiting requester response.',
+      };
+      return this.updateTicket(id, {
+        status: 'pending',
         history: [...(ticket.history || []), entry],
       });
     },

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { ESCALATION_PATHS } from '../utils/constants';
 
 const STORAGE_KEY = 'bmc.auth.userId';
 
@@ -15,9 +16,10 @@ export const useAuthStore = defineStore('auth', {
     isAgent() { return ['l1_agent', 'l2_agent', 'l3_agent'].includes(this.role); },
     canCreateTicket() { return this.role === 'l1_agent'; },
     canEscalateTo() {
-      if (this.role === 'l1_agent') return ['L2', 'L3'];
-      if (this.role === 'l2_agent') return ['L3'];
-      return [];
+      // Managers can route to any level (acts as override).
+      if (this.isManager) return ['L1', 'L2', 'L3'];
+      const lvl = this.supportLevel; // 'L1' | 'L2' | 'L3'
+      return ESCALATION_PATHS[lvl] || [];
     },
     canViewAll() { return this.isManager; },
   },
