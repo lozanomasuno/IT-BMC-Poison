@@ -1,0 +1,12 @@
+{
+  "name": "bmc-poison-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "json-server --watch db.json --port 3001",
+    "generate": "node generate.js"
+  },
+  "devDependencies": {
+    "json-server": "^0.17.4"
+  }
+}
