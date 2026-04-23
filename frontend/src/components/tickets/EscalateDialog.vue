@@ -2,6 +2,8 @@
 import { ref } from 'vue';
 import { useTicketsStore } from '../../stores/tickets';
 import { useAuthStore } from '../../stores/auth';
+import { useUsersStore } from '../../stores/users';
+import { useToastStore } from '../../stores/toasts';
 import Modal from '../common/Modal.vue';
 
 const props = defineProps({
@@ -12,6 +14,8 @@ const emit = defineEmits(['close', 'done']);
 
 const tickets = useTicketsStore();
 const auth = useAuthStore();
+const users = useUsersStore();
+const toasts = useToastStore();
 
 const targetLevel = ref(auth.canEscalateTo[0] || 'L2');
 const notes = ref('');
@@ -21,17 +25,16 @@ const submit = async () => {
   if (!auth.currentUser) return;
   submitting.value = true;
   try {
-    await tickets.escalateTicket(props.ticket.id, targetLevel.value, auth.currentUser, useUsersStore_safe(), notes.value);
+    await tickets.escalateTicket(props.ticket.id, targetLevel.value, auth.currentUser, users, notes.value);
+    toasts.success(`Ticket ${props.ticket.ticketNumber} escalated to ${targetLevel.value}.`);
     emit('done');
     emit('close');
+  } catch (e) {
+    toasts.error(`Escalation failed: ${e.message}`);
   } finally {
     submitting.value = false;
   }
 };
-
-// Lazy import to avoid cyclic concerns
-import { useUsersStore } from '../../stores/users';
-function useUsersStore_safe() { return useUsersStore(); }
 </script>
 
 <template>

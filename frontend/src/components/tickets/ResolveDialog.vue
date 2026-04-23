@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useTicketsStore } from '../../stores/tickets';
 import { useAuthStore } from '../../stores/auth';
+import { useToastStore } from '../../stores/toasts';
 import Modal from '../common/Modal.vue';
 
 const props = defineProps({
@@ -12,6 +13,7 @@ const emit = defineEmits(['close', 'done']);
 
 const tickets = useTicketsStore();
 const auth = useAuthStore();
+const toasts = useToastStore();
 
 const resolution = ref('');
 const submitting = ref(false);
@@ -21,8 +23,11 @@ const submit = async () => {
   submitting.value = true;
   try {
     await tickets.resolveTicket(props.ticket.id, resolution.value.trim(), auth.currentUser);
+    toasts.success(`Ticket ${props.ticket.ticketNumber} marked as resolved.`);
     emit('done');
     emit('close');
+  } catch (e) {
+    toasts.error(`Resolve failed: ${e.message}`);
   } finally {
     submitting.value = false;
   }

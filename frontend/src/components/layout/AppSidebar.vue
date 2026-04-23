@@ -18,6 +18,7 @@ const nav = computed(() => [
   { to: '/incidents',  label: 'Incident Pool', icon: 'alert',   badge: tickets.incidents.length },
   { to: '/requests',   label: 'Request Pool',  icon: 'inbox',   badge: tickets.requests.length },
   { to: '/my-tickets', label: 'My Tickets',    icon: 'user',    badge: myCount.value },
+  { to: '/manager',    label: 'Manager',       icon: 'shield',  restricted: !auth.isManager },
   { to: '/reports',    label: 'Reports',       icon: 'chart' },
   { to: '/settings',   label: 'Settings',      icon: 'gear' },
 ]);
@@ -76,6 +77,9 @@ const isActive = (to) => to === '/' ? route.path === '/' : route.path.startsWith
                 <template v-else-if="item.icon === 'gear'">
                   <circle cx="12" cy="12" r="3"/>
                   <path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.4.9a7 7 0 00-2-1.2L14 3h-4l-.5 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-.9a7 7 0 002 1.2L10 21h4l.5-2.6a7 7 0 002-1.2l2.4.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>
+                </template>
+                <template v-else-if="item.icon === 'shield'">
+                  <path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3z"/>
                 </template>
               </svg>
             </span>
