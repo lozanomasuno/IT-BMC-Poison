@@ -94,7 +94,7 @@ const isGroupExpanded = (key) => !collapsed.value && !!ui.expandedMenus?.[key];
       <span v-if="!collapsed">Collapse</span>
     </button>
 
-    <nav class="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+    <nav class="flex-1 overflow-y-auto overscroll-contain scrollbar-slim-dark px-3 py-2 space-y-1">
       <template v-for="item in flatNav" :key="(item.kind === 'group' ? 'g:' : 'l:') + (item.to || item.key)">
         <!-- Plain link items -->
         <RouterLink

@@ -7,6 +7,13 @@ import {
   DEFAULT_GROUP_BY_LEVEL,
   CATEGORY_ROUTING,
 } from '../utils/constants';
+import {
+  computeSlaDeadlines,
+  ticketSlaStatus,
+  metricsByLevel,
+  globalSlaCompliance,
+  averageResolutionMs,
+} from '../utils/sla';
 import { isToday, nextTicketNumber } from '../utils/format';
 
 const TERMINAL_STATUSES = ['closed', 'resolved', 'cancelled'];
@@ -106,6 +113,19 @@ export const useTicketsStore = defineStore('tickets', {
       s.tickets.filter((t) => t.breachedSla && !TERMINAL_STATUSES.includes(t.status)),
     escalationCountFor: () => (ticket) =>
       (ticket?.history || []).filter((h) => h.action?.startsWith('Escalated')).length,
+
+    // SLA / KPI getters (computed live from deadlines + history; no stale flags).
+    breachedTickets: (s) => {
+      const now = Date.now();
+      return s.tickets.filter((t) => ticketSlaStatus(t, now).state === 'breached');
+    },
+    warningTickets: (s) => {
+      const now = Date.now();
+      return s.tickets.filter((t) => ticketSlaStatus(t, now).state === 'warning');
+    },
+    slaComplianceGlobal: (s) => globalSlaCompliance(s.tickets),
+    averageResolutionMs: (s) => averageResolutionMs(s.tickets),
+    metricsBySupportLevel: (s) => metricsByLevel(s.tickets),
   },
   actions: {
     async fetchTickets() {
@@ -142,10 +162,12 @@ export const useTicketsStore = defineStore('tickets', {
 
     async createTicket(payload, currentUser, usersStore) {
       const number = nextTicketNumber(payload.type, this.tickets);
-      const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+      const now = nowIso();
 
       // Determine routing group from category if possible.
       const targetGroup = usersStore.groups.find((g) => g.level === 'L1') || usersStore.groups[0];
+
+      const slaFields = computeSlaDeadlines(now, payload.priority);
 
       const newTicket = {
         ticketNumber: number,
@@ -169,8 +191,10 @@ export const useTicketsStore = defineStore('tickets', {
         resolution: null,
         locationCountry: payload.country,
         locationCity: payload.city,
-        slaHours: payload.priority === 'critical' ? 2 : payload.priority === 'high' ? 4 : payload.priority === 'medium' ? 8 : 24,
+        ...slaFields,
         breachedSla: false,
+        breachedResponseSla: false,
+        breachedResolutionSla: false,
         relatedService: null,
         history: [
           {
@@ -186,6 +210,15 @@ export const useTicketsStore = defineStore('tickets', {
       const created = await api.post('/tickets', newTicket);
       this.tickets.push(created);
       return created;
+    },
+
+    // Recompute SLA deadlines for a single ticket (e.g. after priority change).
+    // Existing values are preserved so SLA is never weakened by accident.
+    async calculateSLA(id) {
+      const ticket = this.byId(id);
+      if (!ticket) throw new Error('Ticket not found');
+      const fields = computeSlaDeadlines(ticket.createdAt, ticket.priority, ticket);
+      return this.updateTicket(id, fields);
     },
 
     async updateTicket(id, patch) {
