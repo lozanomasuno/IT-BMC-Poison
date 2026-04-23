@@ -20,7 +20,6 @@ const title = computed(() => {
     'request-pool': 'Request Pool',
     'my-tickets': 'My Tickets',
     'manager': 'Manager Console',
-    'reports': 'Reports',
     'settings': 'Settings',
     'ticket-detail': 'Ticket Detail',
   };
