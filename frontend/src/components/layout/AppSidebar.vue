@@ -19,7 +19,6 @@ const nav = computed(() => [
   { to: '/requests',   label: 'Request Pool',  icon: 'inbox',   badge: tickets.requests.length },
   { to: '/my-tickets', label: 'My Tickets',    icon: 'user',    badge: myCount.value },
   { to: '/manager',    label: 'Manager',       icon: 'shield',  restricted: !auth.isManager },
-  { to: '/reports',    label: 'Reports',       icon: 'chart' },
   { to: '/settings',   label: 'Settings',      icon: 'gear' },
 ]);
 
