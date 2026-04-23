@@ -11,6 +11,7 @@ const routes = [
       { path: 'incidents',       name: 'incident-pool', component: () => import('../views/IncidentPoolView.vue') },
       { path: 'requests',        name: 'request-pool',  component: () => import('../views/RequestPoolView.vue') },
       { path: 'my-tickets',      name: 'my-tickets',    component: () => import('../views/MyTicketsView.vue') },
+      { path: 'manager',         name: 'manager',       component: () => import('../views/ManagerView.vue') },
       { path: 'reports',         name: 'reports',       component: () => import('../views/ReportsView.vue') },
       { path: 'settings',        name: 'settings',      component: () => import('../views/SettingsView.vue') },
       { path: 'tickets/:id',     name: 'ticket-detail', component: () => import('../views/TicketDetailView.vue'), props: true },
