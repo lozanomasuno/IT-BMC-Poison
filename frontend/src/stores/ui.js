@@ -35,11 +35,13 @@ export const useUiStore = defineStore('ui', {
       localStorage.setItem(KEY_COLLAPSED, this.sidebarCollapsed ? '1' : '0');
     },
     toggleMenu(key) {
-      this.expandedMenus = { ...this.expandedMenus, [key]: !this.expandedMenus[key] };
+      const cur = this.expandedMenus || { ...DEFAULT_EXPANDED };
+      this.expandedMenus = { ...cur, [key]: !cur[key] };
       localStorage.setItem(KEY_EXPANDED, JSON.stringify(this.expandedMenus));
     },
     setMenuExpanded(key, v) {
-      this.expandedMenus = { ...this.expandedMenus, [key]: !!v };
+      const cur = this.expandedMenus || { ...DEFAULT_EXPANDED };
+      this.expandedMenus = { ...cur, [key]: !!v };
       localStorage.setItem(KEY_EXPANDED, JSON.stringify(this.expandedMenus));
     },
   },

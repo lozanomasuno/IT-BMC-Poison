@@ -51,7 +51,7 @@ const isChildActive = (poolTo, statusKey) =>
 // A group counts as expanded if (a) the user opened it, OR (b) we're navigated
 // into one of its children — auto-expand for context.
 const isGroupExpanded = (key, poolTo) =>
-  !collapsed.value && (ui.expandedMenus[key] || isActivePath(poolTo));
+  !collapsed.value && (!!ui.expandedMenus?.[key] || isActivePath(poolTo));
 </script>
 
 <template>
