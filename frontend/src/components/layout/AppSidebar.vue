@@ -33,7 +33,6 @@ const countsByPool = computed(() => {
 
 const flatNav = computed(() => [
   { kind: 'link',  to: '/',        label: 'Dashboard',     icon: 'grid' },
-  { kind: 'link',  to: '/create',  label: 'Create Ticket', icon: 'plus',   restricted: !auth.canCreateTicket },
   ...pools.value.map((p) => ({ kind: 'group', ...p })),
   { kind: 'link',  to: '/manager', label: 'Manager',       icon: 'shield', restricted: !auth.isManager },
   { kind: 'link',  to: '/settings',label: 'Settings',      icon: 'gear' },
