@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
 import { useUsersStore } from '../../stores/users';
 import { useThemeStore } from '../../stores/theme';
+import { useUiStore } from '../../stores/ui';
 import { ROLE_LABELS } from '../../utils/constants';
 
 const route = useRoute();
@@ -11,6 +12,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const users = useUsersStore();
 const theme = useThemeStore();
+const ui = useUiStore();
 
 const title = computed(() => {
   const map = {
@@ -34,9 +36,20 @@ const onUserChange = (e) => {
 
 <template>
   <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
-    <div>
-      <h1 class="text-lg font-semibold text-slate-900 dark:text-white">{{ title }}</h1>
-      <p class="text-xs text-slate-500 dark:text-slate-400">Enterprise IT Service Management</p>
+    <div class="flex items-center gap-3">
+      <button
+        class="btn-ghost p-2 -ml-2"
+        :title="ui.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        @click="ui.toggleSidebar()"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+          <path d="M3 6h18M3 12h18M3 18h18"/>
+        </svg>
+      </button>
+      <div>
+        <h1 class="text-lg font-semibold text-slate-900 dark:text-white">{{ title }}</h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Enterprise IT Service Management</p>
+      </div>
     </div>
 
     <div class="flex items-center gap-3">

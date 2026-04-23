@@ -3,10 +3,14 @@ import { computed } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useTicketsStore } from '../../stores/tickets';
 import { useAuthStore } from '../../stores/auth';
+import { useUiStore } from '../../stores/ui';
 
 const route = useRoute();
 const tickets = useTicketsStore();
 const auth = useAuthStore();
+const ui = useUiStore();
+
+const collapsed = computed(() => ui.sidebarCollapsed);
 
 const myCount = computed(() =>
   auth.currentUserId ? tickets.assignedTo(auth.currentUserId).length : 0
@@ -26,27 +30,49 @@ const isActive = (to) => to === '/' ? route.path === '/' : route.path.startsWith
 </script>
 
 <template>
-  <aside class="w-64 shrink-0 bg-slate-900 text-slate-200 flex flex-col">
-    <div class="px-6 py-5 border-b border-slate-800 flex items-center gap-3">
-      <div class="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center font-bold text-white">B</div>
-      <div>
-        <div class="text-sm font-semibold text-white tracking-wide">BMC Poison</div>
-        <div class="text-[11px] text-slate-400 uppercase tracking-wider">ITSM Service Desk</div>
+  <aside
+    class="shrink-0 bg-slate-900 text-slate-200 flex flex-col transition-[width] duration-200 ease-in-out"
+    :class="collapsed ? 'w-[68px]' : 'w-64'"
+  >
+    <div
+      class="px-4 py-5 border-b border-slate-800 flex items-center gap-3"
+      :class="collapsed ? 'justify-center' : ''"
+    >
+      <div class="w-9 h-9 shrink-0 rounded-lg bg-brand-600 flex items-center justify-center font-bold text-white">B</div>
+      <div v-if="!collapsed" class="overflow-hidden">
+        <div class="text-sm font-semibold text-white tracking-wide truncate">BMC Poison</div>
+        <div class="text-[11px] text-slate-400 uppercase tracking-wider truncate">ITSM Service Desk</div>
       </div>
     </div>
 
-    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+    <button
+      type="button"
+      class="mx-3 my-2 flex items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+      :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+      @click="ui.toggleSidebar()"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 transition-transform"
+           :class="collapsed ? 'rotate-180' : ''">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+      <span v-if="!collapsed">Collapse</span>
+    </button>
+
+    <nav class="flex-1 overflow-y-auto px-3 py-2 space-y-1">
       <template v-for="item in nav" :key="item.to">
         <RouterLink
           v-if="!item.restricted"
           :to="item.to"
-          class="group flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
-          :class="isActive(item.to)
-            ? 'bg-brand-600 text-white shadow-soft'
-            : 'text-slate-300 hover:bg-slate-800 hover:text-white'"
+          :title="collapsed ? item.label : undefined"
+          class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+          :class="[
+            isActive(item.to) ? 'bg-brand-600 text-white shadow-soft'
+                              : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+            collapsed ? 'justify-center px-2' : 'justify-between',
+          ]"
         >
-          <span class="flex items-center gap-3">
-            <span class="w-5 h-5 inline-flex items-center justify-center">
+          <span class="flex items-center gap-3 min-w-0">
+            <span class="w-5 h-5 shrink-0 inline-flex items-center justify-center relative">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-5 h-5">
                 <template v-if="item.icon === 'grid'">
                   <rect x="3" y="3" width="7" height="7" rx="1.5"/>
@@ -81,11 +107,17 @@ const isActive = (to) => to === '/' ? route.path === '/' : route.path.startsWith
                   <path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3z"/>
                 </template>
               </svg>
+              <span
+                v-if="collapsed && item.badge != null && item.badge > 0"
+                class="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-brand-500 text-[9px] leading-[16px] text-white font-semibold text-center"
+              >
+                {{ item.badge > 99 ? '99+' : item.badge }}
+              </span>
             </span>
-            {{ item.label }}
+            <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
           </span>
           <span
-            v-if="item.badge != null"
+            v-if="!collapsed && item.badge != null"
             class="text-[10px] font-semibold px-2 py-0.5 rounded-full"
             :class="isActive(item.to)
               ? 'bg-white/20 text-white'
@@ -97,8 +129,12 @@ const isActive = (to) => to === '/' ? route.path === '/' : route.path.startsWith
       </template>
     </nav>
 
-    <div class="px-4 py-4 border-t border-slate-800 text-[11px] text-slate-500">
-      <div>v1.0.0 · Mock ITSM</div>
+    <div
+      class="px-4 py-4 border-t border-slate-800 text-[11px] text-slate-500"
+      :class="collapsed ? 'text-center' : ''"
+    >
+      <div v-if="!collapsed">v1.0.0 · Mock ITSM</div>
+      <div v-else>v1.0</div>
     </div>
   </aside>
 </template>
