@@ -4,11 +4,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { useTicketsStore } from '../stores/tickets';
 import { useUsersStore } from '../stores/users';
 import { useAuthStore } from '../stores/auth';
+import { useToastStore } from '../stores/toasts';
 import StatusBadge from '../components/common/StatusBadge.vue';
 import PriorityBadge from '../components/common/PriorityBadge.vue';
 import LevelBadge from '../components/common/LevelBadge.vue';
 import EscalateDialog from '../components/tickets/EscalateDialog.vue';
 import ResolveDialog from '../components/tickets/ResolveDialog.vue';
+import ReassignDialog from '../components/tickets/ReassignDialog.vue';
+import EscalationPath from '../components/tickets/EscalationPath.vue';
 import { formatDate, relativeTime } from '../utils/format';
 import { usePermissions } from '../composables/usePermissions';
 
@@ -17,6 +20,7 @@ const router = useRouter();
 const tickets = useTicketsStore();
 const users = useUsersStore();
 const auth = useAuthStore();
+const toasts = useToastStore();
 const perms = usePermissions();
 
 const ticket = computed(() => tickets.byId(route.params.id));
@@ -27,9 +31,12 @@ const group = computed(() => ticket.value ? users.groupById(ticket.value.assigne
 const escalations = computed(() =>
   (ticket.value?.history || []).filter((h) => h.action?.startsWith('Escalated'))
 );
+const escalationCount = computed(() => escalations.value.length);
+const isTerminal = computed(() => ['resolved', 'closed', 'cancelled'].includes(ticket.value?.status));
 
 const showEscalate = ref(false);
 const showResolve = ref(false);
+const showReassign = ref(false);
 
 const note = ref('');
 const submittingNote = ref(false);
@@ -47,7 +54,35 @@ const addNote = async () => {
 const closeIt = async () => {
   if (!ticket.value || !auth.currentUser) return;
   if (!confirm(`Close ticket ${ticket.value.ticketNumber}?`)) return;
-  await tickets.closeTicket(ticket.value.id, auth.currentUser);
+  try {
+    await tickets.closeTicket(ticket.value.id, auth.currentUser);
+    toasts.success(`Ticket ${ticket.value.ticketNumber} closed.`);
+  } catch (e) {
+    toasts.error(`Close failed: ${e.message}`);
+  }
+};
+
+const startProgress = async () => {
+  try {
+    await tickets.startProgress(ticket.value.id, auth.currentUser);
+    toasts.success('Status updated to In Progress.');
+  } catch (e) { toasts.error(e.message); }
+};
+
+const setPending = async () => {
+  const reason = prompt('Reason for setting Pending (optional):') ?? '';
+  try {
+    await tickets.setPending(ticket.value.id, reason, auth.currentUser);
+    toasts.success('Status updated to Pending.');
+  } catch (e) { toasts.error(e.message); }
+};
+
+const reopen = async () => {
+  const reason = prompt('Reason to reopen this ticket:') ?? '';
+  try {
+    await tickets.reopenTicket(ticket.value.id, reason, auth.currentUser);
+    toasts.success('Ticket reopened.');
+  } catch (e) { toasts.error(e.message); }
 };
 </script>
 
@@ -55,7 +90,7 @@ const closeIt = async () => {
   <div v-if="!ticket" class="card p-8 text-center text-slate-500">Loading ticket…</div>
 
   <div v-else class="space-y-5">
-    <div class="flex items-center gap-3">
+    <div class="flex flex-wrap items-center gap-3">
       <button class="btn-ghost text-sm" @click="router.back()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
           <path d="m15 18-6-6 6-6"/>
@@ -66,15 +101,32 @@ const closeIt = async () => {
       <StatusBadge :status="ticket.status" />
       <PriorityBadge :priority="ticket.priority" />
       <LevelBadge :level="ticket.currentLevel" />
+      <span v-if="group" class="text-xs px-2 py-0.5 rounded-md border bg-slate-50 text-slate-700 border-slate-200">
+        {{ group.name }}
+      </span>
+      <span v-if="escalationCount > 0"
+            class="text-xs px-2 py-0.5 rounded-md border bg-amber-50 text-amber-700 border-amber-200"
+            :title="`${escalationCount} escalation${escalationCount === 1 ? '' : 's'}`">
+        ↑ {{ escalationCount }}
+      </span>
       <span v-if="ticket.breachedSla" class="text-xs px-2 py-0.5 rounded-md border bg-rose-50 text-rose-700 border-rose-200">SLA breached</span>
 
-      <div class="ml-auto flex items-center gap-2">
-        <button v-if="perms.canEdit(ticket) && perms.canEscalateTo.value.length"
+      <EscalationPath :level="ticket.currentLevel" class="ml-1" />
+
+      <div class="ml-auto flex flex-wrap items-center gap-2">
+        <button v-if="perms.canEdit(ticket) && ticket.status === 'assigned'"
+                class="btn-ghost text-xs" @click="startProgress">Start</button>
+        <button v-if="perms.canEdit(ticket) && ticket.status === 'in_progress'"
+                class="btn-ghost text-xs" @click="setPending">Pending</button>
+        <button v-if="perms.canEdit(ticket) && perms.canEscalate(ticket)"
                 class="btn-secondary text-amber-700" @click="showEscalate = true">Escalate</button>
-        <button v-if="perms.canResolve(ticket) && !['resolved','closed','cancelled'].includes(ticket.status)"
+        <button v-if="perms.canResolve(ticket) && !isTerminal"
                 class="btn-secondary text-emerald-700" @click="showResolve = true">Resolve</button>
         <button v-if="perms.canClose(ticket) && !['closed','cancelled'].includes(ticket.status)"
                 class="btn-primary" @click="closeIt">Close</button>
+        <button v-if="perms.canReopen(ticket)"
+                class="btn-secondary text-sky-700" @click="reopen">Reopen</button>
+        <button v-if="auth.isManager" class="btn-secondary" @click="showReassign = true">Reassign</button>
       </div>
     </div>
 
@@ -94,6 +146,9 @@ const closeIt = async () => {
               <div class="text-sm font-medium text-slate-800">{{ h.action }}</div>
               <div class="text-xs text-slate-500">
                 {{ h.performedBy }} · {{ formatDate(h.date) }} · <span class="font-medium">{{ h.level }}</span>
+                <span v-if="h.previousLevel && h.newLevel" class="ml-1 text-amber-700">
+                  ({{ h.previousLevel }} → {{ h.newLevel }})
+                </span>
               </div>
               <div v-if="h.notes" class="mt-1 text-sm text-slate-600">{{ h.notes }}</div>
             </li>
@@ -133,18 +188,14 @@ const closeIt = async () => {
           <ul v-if="escalations.length" class="space-y-2">
             <li v-for="(e, i) in escalations" :key="i" class="text-sm text-slate-700">
               <span class="font-medium">{{ e.action }}</span>
+              <span v-if="e.previousLevel && e.newLevel" class="text-xs text-amber-700 ml-1">
+                ({{ e.previousLevel }} → {{ e.newLevel }})
+              </span>
               <span class="text-xs text-slate-500"> · {{ e.performedBy }} · {{ formatDate(e.date) }}</span>
-              <div class="text-xs text-slate-500">{{ e.notes }}</div>
+              <div v-if="e.notes" class="text-xs text-slate-500">{{ e.notes }}</div>
             </li>
           </ul>
           <p v-else class="text-xs text-slate-400">No escalations recorded.</p>
-        </div>
-
-        <div class="card p-5">
-          <h3 class="text-sm font-semibold text-slate-900 mb-2">Attachments</h3>
-          <div class="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center text-xs text-slate-400">
-            Attachments are not enabled in the demo backend.
-          </div>
         </div>
       </div>
 
@@ -204,13 +255,19 @@ const closeIt = async () => {
               <div class="text-xs text-slate-500">{{ assignee.email }}</div>
             </div>
           </div>
+          <div v-else class="text-xs text-slate-400 mb-3">Unassigned — waiting for {{ group?.name || 'group' }} to pick it up.</div>
           <div class="text-xs text-slate-500">Group</div>
           <div class="text-sm text-slate-800">{{ group?.name || '—' }} <span class="text-xs text-slate-500">({{ group?.level }})</span></div>
+          <div class="mt-3">
+            <div class="text-xs text-slate-500 mb-1">Escalation path</div>
+            <EscalationPath :level="ticket.currentLevel" />
+          </div>
         </div>
       </aside>
     </div>
 
     <EscalateDialog v-if="showEscalate" :ticket="ticket" :open="showEscalate" @close="showEscalate = false" />
     <ResolveDialog v-if="showResolve" :ticket="ticket" :open="showResolve" @close="showResolve = false" />
+    <ReassignDialog v-if="showReassign" :ticket="ticket" :open="showReassign" @close="showReassign = false" />
   </div>
 </template>

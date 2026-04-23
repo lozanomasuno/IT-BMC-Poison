@@ -58,3 +58,30 @@ export const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 export const IMPACTS = ['low', 'medium', 'high'];
 export const URGENCIES = ['low', 'medium', 'high'];
 export const TICKET_TYPES = ['incident', 'request'];
+
+// Escalation rules — what a given level may escalate to.
+export const ESCALATION_PATHS = {
+  L1: ['L2', 'L3'],
+  L2: ['L3'],
+  L3: [],
+};
+
+export const LEVEL_ORDER = { L1: 1, L2: 2, L3: 3 };
+export const LEVEL_LABEL = { L1: 'L1 — Help Desk', L2: 'L2 — Application Support', L3: 'L3 — Advanced / Field Support' };
+
+// Default group name to assign when a ticket is escalated/created at a level.
+// The store will resolve the actual group id via name match.
+export const DEFAULT_GROUP_BY_LEVEL = {
+  L1: 'Help Desk',
+  L2: 'Application Support',
+  L3: 'Field Support',
+};
+
+// Category-driven routing overrides. Match on category OR subcategory (case-insensitive,
+// substring). Lets L1 send hardware/network/app-bug tickets straight to the right group.
+export const CATEGORY_ROUTING = [
+  { match: /network|vpn|wifi|connectivity/i, level: 'L2', groupName: 'Network Team' },
+  { match: /hardware|laptop|printer|peripheral|power/i, level: 'L3', groupName: 'Field Support' },
+  { match: /application bug|app bug|software bug|defect/i, level: 'L3', groupName: 'Application Owners' },
+  { match: /security|identity|access governance/i, level: 'L3', groupName: 'Security Team' },
+];

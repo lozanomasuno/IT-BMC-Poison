@@ -794,7 +794,7 @@
     {
       "id": 5,
       "name": "Field Support",
-      "level": "L2",
+      "level": "L3",
       "description": "On-site hardware support, laptops, printers and peripherals."
     },
     {
@@ -802,6 +802,12 @@
       "name": "Security Team",
       "level": "L3",
       "description": "Identity, access governance and security incidents."
+    },
+    {
+      "id": 7,
+      "name": "Application Owners",
+      "level": "L3",
+      "description": "Product owners and engineers responsible for application bug fixes and root cause analysis."
     }
   ],
   "serviceCatalog": [
