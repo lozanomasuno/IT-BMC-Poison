@@ -59,3 +59,54 @@
     @apply text-slate-300 border-slate-800;
   }
 }
+
+@layer utilities {
+  /* Slim, themed scrollbar — used by the sidebar nav. */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent; /* slate-400 / transparent */
+  }
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+    transition: background-color 0.15s ease;
+  }
+  .scrollbar-slim:hover::-webkit-scrollbar-thumb,
+  .scrollbar-slim:focus-within::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.6);
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(203, 213, 225, 0.85); /* slate-300 */
+  }
+  /* Dark sidebar variant — slightly lighter thumb on dark slate-900 bg. */
+  .scrollbar-slim-dark {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(71, 85, 105, 0.6) transparent; /* slate-600 / transparent */
+  }
+  .scrollbar-slim-dark::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-slim-dark::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-slim-dark::-webkit-scrollbar-thumb {
+    background-color: rgba(71, 85, 105, 0.55);
+    border-radius: 9999px;
+    transition: background-color 0.15s ease;
+  }
+  .scrollbar-slim-dark:hover::-webkit-scrollbar-thumb,
+  .scrollbar-slim-dark:focus-within::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.85); /* slate-500 */
+  }
+  .scrollbar-slim-dark::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(148, 163, 184, 1); /* slate-400 */
+  }
+}
