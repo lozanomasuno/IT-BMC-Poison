@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useTicketsStore } from '../../stores/tickets';
 import { useAuthStore } from '../../stores/auth';
@@ -48,10 +48,22 @@ const activeStatus = computed(() => {
 const isChildActive = (poolTo, statusKey) =>
   isActivePath(poolTo) && activeStatus.value === statusKey;
 
-// A group counts as expanded if (a) the user opened it, OR (b) we're navigated
-// into one of its children — auto-expand for context.
-const isGroupExpanded = (key, poolTo) =>
-  !collapsed.value && (!!ui.expandedMenus?.[key] || isActivePath(poolTo));
+// A group is expanded purely based on user intent (persisted). When the user
+// navigates into a pool we auto-open it once for context, but from then on the
+// toggle button is fully in control (so the user can collapse it again).
+watch(
+  () => route.path,
+  (path) => {
+    for (const p of pools.value) {
+      if (path.startsWith(p.to) && !ui.expandedMenus?.[p.key]) {
+        ui.setMenuExpanded(p.key, true);
+      }
+    }
+  },
+  { immediate: true }
+);
+
+const isGroupExpanded = (key) => !collapsed.value && !!ui.expandedMenus?.[key];
 </script>
 
 <template>
@@ -157,7 +169,7 @@ const isGroupExpanded = (key, poolTo) =>
               class="group w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
               :class="isActivePath(item.to) ? 'bg-brand-600/15 text-white'
                                             : 'text-slate-300 hover:bg-slate-800 hover:text-white'"
-              :aria-expanded="isGroupExpanded(item.key, item.to)"
+              :aria-expanded="isGroupExpanded(item.key)"
               @click="ui.toggleMenu(item.key)"
             >
               <span class="flex items-center gap-3 min-w-0">
@@ -181,12 +193,12 @@ const isGroupExpanded = (key, poolTo) =>
               </span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                    class="w-4 h-4 shrink-0 transition-transform"
-                   :class="isGroupExpanded(item.key, item.to) ? 'rotate-90' : ''">
+                   :class="isGroupExpanded(item.key) ? 'rotate-90' : ''">
                 <path d="M9 6l6 6-6 6"/>
               </svg>
             </button>
 
-            <ul v-show="isGroupExpanded(item.key, item.to)" class="mt-1 mb-1 ml-7 pl-3 border-l border-slate-800 space-y-0.5">
+            <ul v-show="isGroupExpanded(item.key)" class="mt-1 mb-1 ml-7 pl-3 border-l border-slate-800 space-y-0.5">
               <li v-for="f in STATUS_FILTERS" :key="f.key">
                 <RouterLink
                   :to="{ path: item.to, query: { status: f.key } }"
