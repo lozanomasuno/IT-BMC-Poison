@@ -12,6 +12,8 @@ import EscalateDialog from '../components/tickets/EscalateDialog.vue';
 import ResolveDialog from '../components/tickets/ResolveDialog.vue';
 import ReassignDialog from '../components/tickets/ReassignDialog.vue';
 import EscalationPath from '../components/tickets/EscalationPath.vue';
+import SlaProgressBar from '../components/tickets/SlaProgressBar.vue';
+import OwnershipTimeline from '../components/tickets/OwnershipTimeline.vue';
 import { formatDate, relativeTime } from '../utils/format';
 import { usePermissions } from '../composables/usePermissions';
 
@@ -136,6 +138,13 @@ const reopen = async () => {
           <h2 class="text-lg font-semibold text-slate-900">{{ ticket.title }}</h2>
           <p class="text-xs text-slate-500 mt-0.5">{{ ticket.category }} · {{ ticket.subcategory }}</p>
           <p class="mt-4 text-sm text-slate-700 whitespace-pre-wrap">{{ ticket.description }}</p>
+        </div>
+
+        <div class="card p-5 space-y-4">
+          <h3 class="text-sm font-semibold text-slate-900">SLA Health</h3>
+          <SlaProgressBar :ticket="ticket" variant="response" />
+          <SlaProgressBar :ticket="ticket" variant="resolution" />
+          <OwnershipTimeline :ticket="ticket" />
         </div>
 
         <div class="card p-5">

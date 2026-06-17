@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 
-const DEFAULT_ADVANCED = { priority: '', groupId: '', level: '', from: '', to: '' };
+const DEFAULT_ADVANCED = { priority: '', groupId: '', level: '', from: '', to: '', breachedSla: '', type: '', country: '', city: '' };
 const DEFAULT_SORT = { key: 'updatedAt', dir: 'desc' };
 
 export const useFiltersStore = defineStore('filters', {

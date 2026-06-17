@@ -1,4 +1,5 @@
 import { PRIORITIES } from './constants';
+import { ticketSlaStatus } from './sla';
 
 const PRIORITY_RANK = { low: 0, medium: 1, high: 2, critical: 3 };
 const STATUS_RANK = {
@@ -59,10 +60,17 @@ export function sortTickets(list, key, dir, usersStore) {
 }
 
 export function applyAdvancedFilters(list, filters) {
+  const now = Date.now();
   return list.filter((t) => {
     if (filters.priority && t.priority !== filters.priority) return false;
     if (filters.groupId && t.assignedGroupId !== Number(filters.groupId)) return false;
     if (filters.level && t.currentLevel !== filters.level) return false;
+    if (filters.type && t.type !== filters.type) return false;
+    if (filters.country && (t.locationCountry || '').toLowerCase() !== String(filters.country).toLowerCase()) return false;
+    if (filters.city && (t.locationCity || '').toLowerCase() !== String(filters.city).toLowerCase()) return false;
+    if (filters.breachedSla === 'yes' && ticketSlaStatus(t, now).state !== 'breached') return false;
+    if (filters.breachedSla === 'no'  && ticketSlaStatus(t, now).state === 'breached') return false;
+    if (filters.breachedSla === 'warning' && ticketSlaStatus(t, now).state !== 'warning') return false;
     if (filters.from) {
       if (new Date(t.updatedAt) < new Date(filters.from)) return false;
     }
